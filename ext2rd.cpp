@@ -1,8 +1,10 @@
 /*
  *  Author: Willem Hengeveld <itsme@xs4all.nl>
  */
-#include <stdio.h>
+#include <cstdio>
 #include <map>
+#include <memory>
+#include <utility>
 #include <vector>
 #include <list>
 #include <algorithm>
@@ -24,7 +26,7 @@
 #include <memory>
 #include <system_error>
 #include <sys/stat.h>
-#include <inttypes.h>   // PRIx64
+#include <cinttypes>   // PRIx64
 
 #ifdef _WIN32
 #include <direct.h>
@@ -104,8 +106,8 @@ std::string timestr(uint32_t t32)
 
 
 struct DirectoryEntry {
-    uint32_t inode;
-    uint8_t  filetype;  // 1=file, 2=dir, 3=chardev, 4=blockdev, 5=fifo, 6=sock, 7=symlink
+    uint32_t inode = 0;
+    uint8_t  filetype = 0;  // 1=file, 2=dir, 3=chardev, 4=blockdev, 5=fifo, 6=sock, 7=symlink
     std::string name;
     size_t parse(const uint8_t *first)
     {
@@ -124,48 +126,48 @@ struct DirectoryEntry {
 };
 
 struct SuperBlock  {
-    uint32_t s_inodes_count;
-    uint32_t s_blocks_count;
-    uint32_t s_r_blocks_count;
-    uint32_t s_free_blocks_count;
-    uint32_t s_free_inodes_count;
-    uint32_t s_first_data_block;     // 0 or 1
-    uint32_t s_log_block_size;       // blocksize = 1024<<s_log_block_size
-    int32_t s_log_frag_size;         // fragsize = 1024<<s_log_frag_size
-    uint32_t s_blocks_per_group;
-    uint32_t s_frags_per_group;
-    uint32_t s_inodes_per_group;
-    uint32_t s_mtime;
-    uint32_t s_wtime;
-    uint16_t s_mnt_count;
-    uint16_t s_max_mnt_count;
-    uint16_t s_magic;            // ef53
-    uint16_t s_state;
-    uint16_t s_errors;
-    uint16_t s_minor_rev_level;
-    uint32_t s_lastcheck;
-    uint32_t s_checkinterval;
-    uint32_t s_creator_os;
-    uint32_t s_rev_level;
-    uint16_t s_def_resuid;
-    uint16_t s_def_resgid;
+    uint32_t s_inodes_count = 0;
+    uint32_t s_blocks_count = 0;
+    uint32_t s_r_blocks_count = 0;
+    uint32_t s_free_blocks_count = 0;
+    uint32_t s_free_inodes_count = 0;
+    uint32_t s_first_data_block = 0;     // 0 or 1
+    uint32_t s_log_block_size = 0;       // blocksize = 1024<<s_log_block_size
+    int32_t s_log_frag_size = 0;         // fragsize = 1024<<s_log_frag_size
+    uint32_t s_blocks_per_group = 0;
+    uint32_t s_frags_per_group = 0;
+    uint32_t s_inodes_per_group = 0;
+    uint32_t s_mtime = 0;
+    uint32_t s_wtime = 0;
+    uint16_t s_mnt_count = 0;
+    uint16_t s_max_mnt_count = 0;
+    uint16_t s_magic = 0;            // ef53
+    uint16_t s_state = 0;
+    uint16_t s_errors = 0;
+    uint16_t s_minor_rev_level = 0;
+    uint32_t s_lastcheck = 0;
+    uint32_t s_checkinterval = 0;
+    uint32_t s_creator_os = 0;
+    uint32_t s_rev_level = 0;
+    uint16_t s_def_resuid = 0;
+    uint16_t s_def_resgid = 0;
 
-        uint32_t s_first_ino;
-        uint16_t s_inode_size;
-        uint16_t s_block_group_nr;
-        uint32_t s_feature_compat;
-        uint32_t s_feature_incompat;
-        uint32_t s_feature_ro_compat;
-        uint8_t s_uuid[16];
-        uint8_t s_volume_name[16];
-        uint8_t s_last_mounted[64];
-        uint32_t s_algo_bitmap;
+        uint32_t s_first_ino = 0;
+        uint16_t s_inode_size = 0;
+        uint16_t s_block_group_nr = 0;
+        uint32_t s_feature_compat = 0;
+        uint32_t s_feature_incompat = 0;
+        uint32_t s_feature_ro_compat = 0;
+        uint8_t s_uuid[16] = {0};
+        uint8_t s_volume_name[16] = {0};
+        uint8_t s_last_mounted[64] = {0};
+        uint32_t s_algo_bitmap = 0;
 
     ReadWriter_ptr r;
 
     void parse(ReadWriter_ptr rd)
     {
-        r= rd;
+        r= std::move(rd);
         uint8_t buf[0xCC];
         r->read(buf, 0xCC);
         //printf("%s\n", hexdump(r->getpos()-0xCC, buf, 0xCC).c_str());
@@ -212,15 +214,15 @@ struct SuperBlock  {
         memcpy(s_last_mounted, p, 64);    p+=64;   // 0088;
         s_algo_bitmap= get32le(p);        p+=4;    // 00c8;
     }
-    uint64_t blocksize() const { return 1024<<s_log_block_size; }
-    uint64_t fragsize() const { 
+    [[nodiscard]] uint64_t blocksize() const { return 1024<<s_log_block_size; }
+    [[nodiscard]] uint64_t fragsize() const {
         if (s_log_frag_size <0)
             return 1024>>(-s_log_frag_size);
         else
             return 1024<<s_log_frag_size; 
     }
-    uint64_t bytespergroup() const { return s_blocks_per_group*blocksize(); }
-    size_t ngroups() const { return s_inodes_count/s_inodes_per_group; }
+    [[nodiscard]] uint64_t bytespergroup() const { return s_blocks_per_group*blocksize(); }
+    [[nodiscard]] size_t ngroups() const { return s_inodes_count/s_inodes_per_group; }
 
     void dump() const
     {
@@ -267,12 +269,12 @@ struct SuperBlock  {
         StringList l;
 
         uint32_t all = EXT4_FEATURE_COMPAT_DIR_PREALLOC|EXT4_FEATURE_COMPAT_IMAGIC_INODES|EXT4_FEATURE_COMPAT_HAS_JOURNAL|EXT4_FEATURE_COMPAT_EXT_ATTR|EXT4_FEATURE_COMPAT_RESIZE_INODE|EXT4_FEATURE_COMPAT_DIR_INDEX;
-        if (feat&EXT4_FEATURE_COMPAT_DIR_PREALLOC) l.push_back("DIR_PREALLOC");
-        if (feat&EXT4_FEATURE_COMPAT_IMAGIC_INODES) l.push_back("IMAGIC_INODES");
-        if (feat&EXT4_FEATURE_COMPAT_HAS_JOURNAL) l.push_back("HAS_JOURNAL");
-        if (feat&EXT4_FEATURE_COMPAT_EXT_ATTR) l.push_back("EXT_ATTR");
-        if (feat&EXT4_FEATURE_COMPAT_RESIZE_INODE) l.push_back("RESIZE_INODE");
-        if (feat&EXT4_FEATURE_COMPAT_DIR_INDEX) l.push_back("DIR_INDEX");
+        if (feat&EXT4_FEATURE_COMPAT_DIR_PREALLOC) l.emplace_back("DIR_PREALLOC");
+        if (feat&EXT4_FEATURE_COMPAT_IMAGIC_INODES) l.emplace_back("IMAGIC_INODES");
+        if (feat&EXT4_FEATURE_COMPAT_HAS_JOURNAL) l.emplace_back("HAS_JOURNAL");
+        if (feat&EXT4_FEATURE_COMPAT_EXT_ATTR) l.emplace_back("EXT_ATTR");
+        if (feat&EXT4_FEATURE_COMPAT_RESIZE_INODE) l.emplace_back("RESIZE_INODE");
+        if (feat&EXT4_FEATURE_COMPAT_DIR_INDEX) l.emplace_back("DIR_INDEX");
         if (feat&~all) l.push_back(stringformat("unk_%x", feat&~all));
         return JoinStringList(l, ",");
     }
@@ -281,20 +283,20 @@ struct SuperBlock  {
         StringList l;
 
         uint32_t all = EXT4_FEATURE_INCOMPAT_COMPRESSION|EXT4_FEATURE_INCOMPAT_FILETYPE|EXT4_FEATURE_INCOMPAT_RECOVER|EXT4_FEATURE_INCOMPAT_JOURNAL_DEV|EXT4_FEATURE_INCOMPAT_META_BG|EXT4_FEATURE_INCOMPAT_EXTENTS|EXT4_FEATURE_INCOMPAT_64BIT|EXT4_FEATURE_INCOMPAT_MMP|EXT4_FEATURE_INCOMPAT_FLEX_BG|EXT4_FEATURE_INCOMPAT_EA_INODE|EXT4_FEATURE_INCOMPAT_DIRDATA|EXT4_FEATURE_INCOMPAT_BG_USE_META_CSUM|EXT4_FEATURE_INCOMPAT_LARGEDIR|EXT4_FEATURE_INCOMPAT_INLINE_DATA;
-        if (feat&EXT4_FEATURE_INCOMPAT_COMPRESSION) l.push_back("COMPRESSION");
-        if (feat&EXT4_FEATURE_INCOMPAT_FILETYPE) l.push_back("FILETYPE");
-        if (feat&EXT4_FEATURE_INCOMPAT_RECOVER) l.push_back("RECOVER");
-        if (feat&EXT4_FEATURE_INCOMPAT_JOURNAL_DEV) l.push_back("JOURNAL_DEV");
-        if (feat&EXT4_FEATURE_INCOMPAT_META_BG) l.push_back("META_BG");
-        if (feat&EXT4_FEATURE_INCOMPAT_EXTENTS) l.push_back("EXTENTS");
-        if (feat&EXT4_FEATURE_INCOMPAT_64BIT) l.push_back("64BIT");
-        if (feat&EXT4_FEATURE_INCOMPAT_MMP) l.push_back("MMP");
-        if (feat&EXT4_FEATURE_INCOMPAT_FLEX_BG) l.push_back("FLEX_BG");
-        if (feat&EXT4_FEATURE_INCOMPAT_EA_INODE) l.push_back("EA_INODE");
-        if (feat&EXT4_FEATURE_INCOMPAT_DIRDATA) l.push_back("DIRDATA");
-        if (feat&EXT4_FEATURE_INCOMPAT_BG_USE_META_CSUM) l.push_back("BG_USE_META_CSUM");
-        if (feat&EXT4_FEATURE_INCOMPAT_LARGEDIR) l.push_back("LARGEDIR");
-        if (feat&EXT4_FEATURE_INCOMPAT_INLINE_DATA) l.push_back("INLINE_DATA");
+        if (feat&EXT4_FEATURE_INCOMPAT_COMPRESSION) l.emplace_back("COMPRESSION");
+        if (feat&EXT4_FEATURE_INCOMPAT_FILETYPE) l.emplace_back("FILETYPE");
+        if (feat&EXT4_FEATURE_INCOMPAT_RECOVER) l.emplace_back("RECOVER");
+        if (feat&EXT4_FEATURE_INCOMPAT_JOURNAL_DEV) l.emplace_back("JOURNAL_DEV");
+        if (feat&EXT4_FEATURE_INCOMPAT_META_BG) l.emplace_back("META_BG");
+        if (feat&EXT4_FEATURE_INCOMPAT_EXTENTS) l.emplace_back("EXTENTS");
+        if (feat&EXT4_FEATURE_INCOMPAT_64BIT) l.emplace_back("64BIT");
+        if (feat&EXT4_FEATURE_INCOMPAT_MMP) l.emplace_back("MMP");
+        if (feat&EXT4_FEATURE_INCOMPAT_FLEX_BG) l.emplace_back("FLEX_BG");
+        if (feat&EXT4_FEATURE_INCOMPAT_EA_INODE) l.emplace_back("EA_INODE");
+        if (feat&EXT4_FEATURE_INCOMPAT_DIRDATA) l.emplace_back("DIRDATA");
+        if (feat&EXT4_FEATURE_INCOMPAT_BG_USE_META_CSUM) l.emplace_back("BG_USE_META_CSUM");
+        if (feat&EXT4_FEATURE_INCOMPAT_LARGEDIR) l.emplace_back("LARGEDIR");
+        if (feat&EXT4_FEATURE_INCOMPAT_INLINE_DATA) l.emplace_back("INLINE_DATA");
         if (feat&~all) l.push_back(stringformat("unk_%x", feat&~all));
         return JoinStringList(l, ",");
     }
@@ -303,24 +305,24 @@ struct SuperBlock  {
         StringList l;
 
         uint32_t all = EXT4_FEATURE_RO_COMPAT_SPARSE_SUPER|EXT4_FEATURE_RO_COMPAT_LARGE_FILE|EXT4_FEATURE_RO_COMPAT_BTREE_DIR|EXT4_FEATURE_RO_COMPAT_HUGE_FILE|EXT4_FEATURE_RO_COMPAT_GDT_CSUM|EXT4_FEATURE_RO_COMPAT_DIR_NLINK|EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE|EXT4_FEATURE_RO_COMPAT_QUOTA|EXT4_FEATURE_RO_COMPAT_BIGALLOC|EXT4_FEATURE_RO_COMPAT_METADATA_CSUM;
-        if (feat&EXT4_FEATURE_RO_COMPAT_SPARSE_SUPER) l.push_back("SPARSE_SUPER");
-        if (feat&EXT4_FEATURE_RO_COMPAT_LARGE_FILE) l.push_back("LARGE_FILE");
-        if (feat&EXT4_FEATURE_RO_COMPAT_BTREE_DIR) l.push_back("BTREE_DIR");
-        if (feat&EXT4_FEATURE_RO_COMPAT_HUGE_FILE) l.push_back("HUGE_FILE");
-        if (feat&EXT4_FEATURE_RO_COMPAT_GDT_CSUM) l.push_back("GDT_CSUM");
-        if (feat&EXT4_FEATURE_RO_COMPAT_DIR_NLINK) l.push_back("DIR_NLINK");
-        if (feat&EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE) l.push_back("EXTRA_ISIZE");
-        if (feat&EXT4_FEATURE_RO_COMPAT_QUOTA) l.push_back("QUOTA");
-        if (feat&EXT4_FEATURE_RO_COMPAT_BIGALLOC) l.push_back("BIGALLOC");
-        if (feat&EXT4_FEATURE_RO_COMPAT_METADATA_CSUM) l.push_back("METADATA_CSUM");
+        if (feat&EXT4_FEATURE_RO_COMPAT_SPARSE_SUPER) l.emplace_back("SPARSE_SUPER");
+        if (feat&EXT4_FEATURE_RO_COMPAT_LARGE_FILE) l.emplace_back("LARGE_FILE");
+        if (feat&EXT4_FEATURE_RO_COMPAT_BTREE_DIR) l.emplace_back("BTREE_DIR");
+        if (feat&EXT4_FEATURE_RO_COMPAT_HUGE_FILE) l.emplace_back("HUGE_FILE");
+        if (feat&EXT4_FEATURE_RO_COMPAT_GDT_CSUM) l.emplace_back("GDT_CSUM");
+        if (feat&EXT4_FEATURE_RO_COMPAT_DIR_NLINK) l.emplace_back("DIR_NLINK");
+        if (feat&EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE) l.emplace_back("EXTRA_ISIZE");
+        if (feat&EXT4_FEATURE_RO_COMPAT_QUOTA) l.emplace_back("QUOTA");
+        if (feat&EXT4_FEATURE_RO_COMPAT_BIGALLOC) l.emplace_back("BIGALLOC");
+        if (feat&EXT4_FEATURE_RO_COMPAT_METADATA_CSUM) l.emplace_back("METADATA_CSUM");
         if (feat&~all) l.push_back(stringformat("unk_%x", feat&~all));
         return JoinStringList(l, ",");
     }
 
-    ByteVector getblock(unsigned n) const
+    [[nodiscard]] ByteVector getblock(unsigned n) const
     {
         if (n>=s_blocks_count)
-            throw "blocknr too large";
+            throw std::runtime_error("blocknr too large");
 
         ByteVector buf(blocksize());
         r->setpos(blocksize()*n);
@@ -332,7 +334,7 @@ struct SuperBlock  {
 typedef std::function<bool(const uint8_t*)> BLOCKCALLBACK;
 struct ExtentNode {
 
-    virtual ~ExtentNode() { }
+    virtual ~ExtentNode() = default;
     void parse(ReadWriter_ptr r)
     {
         uint8_t buf[12];
@@ -344,17 +346,19 @@ struct ExtentNode {
 
     virtual bool enumblocks(const SuperBlock &super, BLOCKCALLBACK cb) const= 0;
 };
-struct ExtentLeaf : ExtentNode {
-    uint32_t ee_block;
-    uint16_t ee_len;
-    uint16_t ee_start_hi;
-    uint32_t ee_start_lo;
 
-    ExtentLeaf(const uint8_t*first)
+struct ExtentLeaf : ExtentNode {
+    uint32_t ee_block = 0;
+    uint16_t ee_len = 0;
+    uint16_t ee_start_hi = 0;
+    uint32_t ee_start_lo = 0;
+
+    explicit ExtentLeaf(const uint8_t*first)
     {
-        parse(first);
+        ExtentLeaf::parse(first);
     }
-    virtual void parse(const uint8_t *first)
+
+    void parse(const uint8_t *first) override
     {
         const uint8_t *p= first;
         ee_block        = get32le(p); p+=4; 
@@ -362,15 +366,18 @@ struct ExtentLeaf : ExtentNode {
         ee_start_hi     = get16le(p); p+=2; 
         ee_start_lo     = get32le(p); p+=4; 
     }
-    virtual void dump() const
+
+    void dump() const override
     {
         printf("blk:%08x, l=%d, %010" PRIx64 "\n", ee_block, ee_len, startblock());
     }
-    uint64_t startblock() const
+
+    [[nodiscard]] uint64_t startblock() const
     {
         return (uint64_t(ee_start_hi)<<32)|ee_start_lo;
     }
-    virtual bool enumblocks(const SuperBlock &super, BLOCKCALLBACK cb) const
+
+    [[nodiscard]] bool enumblocks(const SuperBlock &super, BLOCKCALLBACK cb) const override
     {
         uint64_t blk= startblock();
         for (unsigned i=0 ; i<ee_len ; i++)
@@ -380,17 +387,17 @@ struct ExtentLeaf : ExtentNode {
     }
 };
 struct ExtentInternal : ExtentNode {
-    uint32_t ei_block;
-    uint32_t ei_leaf_lo;
-    uint16_t ei_leaf_hi;
-    uint16_t ei_unused;
+    uint32_t ei_block = 0;
+    uint32_t ei_leaf_lo = 0;
+    uint16_t ei_leaf_hi = 0;
+    uint16_t ei_unused = 0;
 
-    ExtentInternal(const uint8_t*first)
+    explicit ExtentInternal(const uint8_t*first)
     {
-        parse(first);
+        ExtentInternal::parse(first);
     }
 
-    virtual void parse(const uint8_t *first)
+    void parse(const uint8_t *first) override
     {
         const uint8_t *p= first;
         ei_block        = get32le(p); p+=4; 
@@ -398,24 +405,25 @@ struct ExtentInternal : ExtentNode {
         ei_leaf_hi      = get16le(p); p+=2; 
         ei_unused       = get16le(p); p+=2; 
     }
-    virtual void dump() const
+
+    void dump() const override
     {
         printf("blk:%08x, [%d] %010" PRIx64 "\n", ei_block, ei_unused, leafnode());
     }
-    uint64_t leafnode() const
+    [[nodiscard]] uint64_t leafnode() const
     {
         return (uint64_t(ei_leaf_hi)<<32)|ei_leaf_lo;
     }
 
-    virtual bool enumblocks(const SuperBlock &super, BLOCKCALLBACK cb) const;
+    bool enumblocks(const SuperBlock &super, BLOCKCALLBACK cb) const override;
 
 };
 struct ExtentHeader {
-	uint16_t eh_magic;	/* probably will support different formats */
-	uint16_t eh_entries;	/* number of valid entries */
-	uint16_t eh_max;		/* capacity of store in entries */
-	uint16_t eh_depth;	/* has tree real underlying blocks? */
-	uint32_t eh_generation;	/* generation of the tree */
+	uint16_t eh_magic = 0;	    /* probably will support different formats */
+	uint16_t eh_entries = 0;	/* number of valid entries */
+	uint16_t eh_max = 0;		/* capacity of store in entries */
+	uint16_t eh_depth = 0;   	/* has tree real underlying blocks? */
+	uint32_t eh_generation = 0; /* generation of the tree */
 
     void parse(const uint8_t *first)
     {
@@ -513,31 +521,31 @@ enum { EXT4_S_IFIFO=0x1000, EXT4_S_IFCHR=0x2000, EXT4_S_IFDIR=0x4000, EXT4_S_IFB
 #define EXT4_INLINE_DATA_FL		0x10000000 /* Inode has inline data. */
 #define EXT4_RESERVED_FL		0x80000000 /* reserved for ext4 lib */
 struct Inode {
-    uint16_t i_mode;       //  000
-    uint16_t i_uid;        //  002
-    uint32_t i_size;       //  004
-    uint32_t i_atime;      //  008
-    uint32_t i_ctime;      //  00c
-    uint32_t i_mtime;      //  010
-    uint32_t i_dtime;      //  014
-    uint16_t i_gid;        //  018
-    uint16_t i_links_count;//  01a
-    uint32_t i_blocks;     //  01c// 512 byte blocks
-    uint32_t i_flags;      //  020
-    uint32_t i_osd1;       //  024
+    uint16_t i_mode = 0;       //  000
+    uint16_t i_uid = 0;        //  002
+    uint32_t i_size = 0;       //  004
+    uint32_t i_atime = 0;      //  008
+    uint32_t i_ctime = 0;      //  00c
+    uint32_t i_mtime = 0;      //  010
+    uint32_t i_dtime = 0;      //  014
+    uint16_t i_gid = 0;        //  018
+    uint16_t i_links_count = 0;//  01a
+    uint32_t i_blocks = 0;     //  01c// 512 byte blocks
+    uint32_t i_flags = 0;      //  020
+    uint32_t i_osd1 = 0;       //  024
 
-    uint32_t i_block[15];  //  028
+    uint32_t i_block[15] = {0};  //  028
 
     std::string  symlink;
     Extent   e;
 
-    uint32_t i_generation; //  064
-    uint32_t i_file_acl;   //  068
-    uint32_t i_dir_acl;    //  06c
-    uint32_t i_faddr;      //  070
-    uint8_t i_osd2[12];    //  074
+    uint32_t i_generation = 0; //  064
+    uint32_t i_file_acl = 0;   //  068
+    uint32_t i_dir_acl = 0;    //  06c
+    uint32_t i_faddr = 0;      //  070
+    uint8_t i_osd2[12] = {0};    //  074
 
-    bool _empty;
+    bool _empty = false;
     void parse(const uint8_t *first, size_t size)
     {
         _empty = std::find_if(first, first+size, [](uint8_t b) { return b!=0; })==first+size;
@@ -563,8 +571,8 @@ struct Inode {
             e.parse(p);      p+=60;
         }
         else {
-            for (int i=0 ; i<15 ; i++) {
-                i_block[i]= get32le(p);  p+=4;
+            for (unsigned int & i : i_block) {
+                i= get32le(p);  p+=4;
             }
         }
         i_generation= get32le(p);  p+=4;
@@ -574,7 +582,7 @@ struct Inode {
         memcpy(i_osd2, p, 12); p+=12;
     }
 
-    bool issymlink() const {
+    [[nodiscard]] bool issymlink() const {
       return (i_mode&0xf000)==EXT4_S_IFLNK && i_size<60;
     }
 
@@ -602,38 +610,39 @@ struct Inode {
         uint32_t all = EXT4_SECRM_FL|EXT4_UNRM_FL|EXT4_COMPR_FL|EXT4_SYNC_FL|EXT4_IMMUTABLE_FL|EXT4_APPEND_FL|EXT4_NODUMP_FL|EXT4_NOATIME_FL|EXT4_DIRTY_FL|EXT4_COMPRBLK_FL|EXT4_NOCOMPR_FL|EXT4_ECOMPR_FL|EXT4_INDEX_FL|EXT4_IMAGIC_FL|EXT4_JOURNAL_DATA_FL|EXT4_NOTAIL_FL|EXT4_DIRSYNC_FL|EXT4_TOPDIR_FL|EXT4_HUGE_FILE_FL|EXT4_EXTENTS_FL|EXT4_EA_INODE_FL|EXT4_EOFBLOCKS_FL|EXT4_INLINE_DATA_FL|EXT4_RESERVED_FL;
 
 
-        if (fl&EXT4_SECRM_FL) l.push_back("SECRM");
-        if (fl&EXT4_UNRM_FL) l.push_back("UNRM");
-        if (fl&EXT4_COMPR_FL) l.push_back("COMPR");
-        if (fl&EXT4_SYNC_FL) l.push_back("SYNC");
-        if (fl&EXT4_IMMUTABLE_FL) l.push_back("IMMUTABLE");
-        if (fl&EXT4_APPEND_FL) l.push_back("APPEND");
-        if (fl&EXT4_NODUMP_FL) l.push_back("NODUMP");
-        if (fl&EXT4_NOATIME_FL) l.push_back("NOATIME");
-        if (fl&EXT4_DIRTY_FL) l.push_back("DIRTY");
-        if (fl&EXT4_COMPRBLK_FL) l.push_back("COMPRBLK");
-        if (fl&EXT4_NOCOMPR_FL) l.push_back("NOCOMPR");
-        if (fl&EXT4_ECOMPR_FL) l.push_back("ECOMPR");
-        if (fl&EXT4_INDEX_FL) l.push_back("INDEX");
-        if (fl&EXT4_IMAGIC_FL) l.push_back("IMAGIC");
-        if (fl&EXT4_JOURNAL_DATA_FL) l.push_back("JOURNAL_DATA");
-        if (fl&EXT4_NOTAIL_FL) l.push_back("NOTAIL");
-        if (fl&EXT4_DIRSYNC_FL) l.push_back("DIRSYNC");
-        if (fl&EXT4_TOPDIR_FL) l.push_back("TOPDIR");
-        if (fl&EXT4_HUGE_FILE_FL) l.push_back("HUGE_FILE");
-        if (fl&EXT4_EXTENTS_FL) l.push_back("EXTENTS");
-        if (fl&EXT4_EA_INODE_FL) l.push_back("EA_INODE");
-        if (fl&EXT4_EOFBLOCKS_FL) l.push_back("EOFBLOCKS");
-        if (fl&EXT4_INLINE_DATA_FL) l.push_back("INLINE_DATA");
-        if (fl&EXT4_RESERVED_FL) l.push_back("RESERVED");
+        if (fl&EXT4_SECRM_FL) l.emplace_back("SECRM");
+        if (fl&EXT4_UNRM_FL) l.emplace_back("UNRM");
+        if (fl&EXT4_COMPR_FL) l.emplace_back("COMPR");
+        if (fl&EXT4_SYNC_FL) l.emplace_back("SYNC");
+        if (fl&EXT4_IMMUTABLE_FL) l.emplace_back("IMMUTABLE");
+        if (fl&EXT4_APPEND_FL) l.emplace_back("APPEND");
+        if (fl&EXT4_NODUMP_FL) l.emplace_back("NODUMP");
+        if (fl&EXT4_NOATIME_FL) l.emplace_back("NOATIME");
+        if (fl&EXT4_DIRTY_FL) l.emplace_back("DIRTY");
+        if (fl&EXT4_COMPRBLK_FL) l.emplace_back("COMPRBLK");
+        if (fl&EXT4_NOCOMPR_FL) l.emplace_back("NOCOMPR");
+        if (fl&EXT4_ECOMPR_FL) l.emplace_back("ECOMPR");
+        if (fl&EXT4_INDEX_FL) l.emplace_back("INDEX");
+        if (fl&EXT4_IMAGIC_FL) l.emplace_back("IMAGIC");
+        if (fl&EXT4_JOURNAL_DATA_FL) l.emplace_back("JOURNAL_DATA");
+        if (fl&EXT4_NOTAIL_FL) l.emplace_back("NOTAIL");
+        if (fl&EXT4_DIRSYNC_FL) l.emplace_back("DIRSYNC");
+        if (fl&EXT4_TOPDIR_FL) l.emplace_back("TOPDIR");
+        if (fl&EXT4_HUGE_FILE_FL) l.emplace_back("HUGE_FILE");
+        if (fl&EXT4_EXTENTS_FL) l.emplace_back("EXTENTS");
+        if (fl&EXT4_EA_INODE_FL) l.emplace_back("EA_INODE");
+        if (fl&EXT4_EOFBLOCKS_FL) l.emplace_back("EOFBLOCKS");
+        if (fl&EXT4_INLINE_DATA_FL) l.emplace_back("INLINE_DATA");
+        if (fl&EXT4_RESERVED_FL) l.emplace_back("RESERVED");
         if (fl&~all) l.push_back(stringformat("unk_%x", fl&~all));
         return JoinStringList(l, ",");
     }
-    uint64_t datasize() const {
+
+    [[nodiscard]] uint64_t datasize() const {
         return uint64_t(i_size); // +(uint64_t(i_dir_acl)<<32);
     }
 
-    bool enumblocks(const SuperBlock &super, BLOCKCALLBACK cb) const
+    bool enumblocks(const SuperBlock &super, const BLOCKCALLBACK& cb) const
     {
         if (issymlink()) {
             // no blocks
@@ -660,12 +669,12 @@ struct Inode {
                 return false;
         return true;
     }
-    bool enumi1block(const SuperBlock &super, uint64_t& bytes, const uint8_t *pblock, BLOCKCALLBACK cb) const
+    bool enumi1block(const SuperBlock &super, uint64_t& bytes, const uint8_t *pblock, const BLOCKCALLBACK& cb) const
     {
-        if (pblock==NULL)
+        if (pblock == nullptr)
             return true;
-        const uint32_t *p= (const uint32_t *)pblock;
-        const uint32_t *last= (const uint32_t *)(pblock+super.blocksize());
+        auto *p= (const uint32_t *)pblock;
+        auto *last= (const uint32_t *)(pblock+super.blocksize());
         while (p<last && bytes < i_size)
         {
             uint32_t blocknr= *p++;
@@ -676,9 +685,9 @@ struct Inode {
         }
         return true;
     }
-    bool enumi2block(const SuperBlock &super, uint64_t& bytes, const uint8_t *pblock, BLOCKCALLBACK cb) const
+    bool enumi2block(const SuperBlock &super, uint64_t& bytes, const uint8_t *pblock, const BLOCKCALLBACK& cb) const
     {
-        if (pblock==NULL)
+        if (pblock == nullptr)
             return true;
         const uint32_t *p= (const uint32_t *)pblock;
         const uint32_t *last= (const uint32_t *)(pblock+super.blocksize());
@@ -687,22 +696,23 @@ struct Inode {
                 return false;
         return true;
     }
-    bool enumi3block(const SuperBlock &super, uint64_t& bytes, const uint8_t *pblock, BLOCKCALLBACK cb) const
+    bool enumi3block(const SuperBlock &super, uint64_t& bytes, const uint8_t *pblock, const BLOCKCALLBACK& cb) const
     {
-        if (pblock==NULL)
+        if (pblock == nullptr)
             return true;
-        const uint32_t *p= (const uint32_t *)pblock;
-        const uint32_t *last= (const uint32_t *)(pblock+super.blocksize());
+        auto *p= (const uint32_t *)pblock;
+        auto *last= (const uint32_t *)(pblock+super.blocksize());
         while (p<last && bytes < i_size)
             if (!enumi2block(super, bytes, &super.getblock(*p++).front(), cb))
                 return false;
         return true;
     }
 
-    bool enumextents(const SuperBlock &super, BLOCKCALLBACK cb) const
+    [[nodiscard]] bool enumextents(const SuperBlock &super, BLOCKCALLBACK cb) const
     {
-        return e.enumblocks(super, cb);
+        return e.enumblocks(super, std::move(cb));
     }
+
     static void rwx(char *str, int bits, bool extra, char xchar)
     {
         str[0] = (bits&4) ? 'r' : '-';
@@ -712,7 +722,8 @@ struct Inode {
         else
             str[2] = (bits&1) ? 'x' : '-';
     }
-    std::string modestr() const
+
+    [[nodiscard]] std::string modestr() const
     {
         std::string result(10, ' ');
         const char *typechar = "?pc?d?b?-?l?s???";
@@ -761,9 +772,9 @@ struct BlockGroupDescriptor {
 };
 
 struct BlockGroup {
-    uint64_t itableoffset;
-    size_t ninodes;
-    size_t inodesize;
+    uint64_t itableoffset = 0;
+    size_t ninodes = 0;
+    size_t inodesize = 0;
 
     ReadWriter_ptr r;
 
@@ -784,7 +795,7 @@ struct BlockGroup {
             ino.dump();
             if ((ino.i_mode&0xf000)==EXT4_S_IFDIR)
                 ino.enumblocks(super, [&](const uint8_t *p)->bool {
-                    if (p==NULL) {
+                    if (p==nullptr) {
                         printf("invalid blocknr\n");
                         return true;
                     }
@@ -793,6 +804,7 @@ struct BlockGroup {
                 });
         });
     }
+
     template<typename FUNC>
     void enuminodes(uint32_t inodebase, FUNC cb) const
     {
@@ -803,6 +815,7 @@ struct BlockGroup {
                 cb(inodebase+i, ino);
         }
     }
+
     static void dumpdirblock(const uint8_t *first, size_t blocksize)
     {
         //printf("%s\n", hexdump(first, blocksize).c_str());
@@ -817,7 +830,7 @@ struct BlockGroup {
         }
     }
 
-    Inode getinode(uint32_t nr) const
+    [[nodiscard]] Inode getinode(uint32_t nr) const
     {
         uint8_t buf[128];
         r->setpos(itableoffset+inodesize*nr);
@@ -834,10 +847,10 @@ struct Ext2FileSystem {
     std::vector<BlockGroupDescriptor> bgdescs;
 
     std::vector<BlockGroup> groups;
-    uint64_t sb_offset;
-    uint64_t rootdir_in;
+    uint64_t sb_offset = 0;
+    uint64_t rootdir_in = 0;
 
-    Ext2FileSystem() { }
+    Ext2FileSystem() = default;
 
     void parse(ReadWriter_ptr r)
     {
@@ -845,7 +858,7 @@ struct Ext2FileSystem {
         super.parse(r);
 
         if (super.s_magic != 0xef53)
-            throw "not an ext2 fs";
+            throw std::runtime_error("not an ext2 fs");
 
         // groupdescs follow the superblock in the 2nd block
         parsegroupdescs(r);
@@ -857,7 +870,8 @@ struct Ext2FileSystem {
             off+=super.bytespergroup();
         }
     }
-    void parsegroupdescs(ReadWriter_ptr r)
+
+    void parsegroupdescs(const ReadWriter_ptr& r)
     {
         uint64_t bgdescpos;
 
@@ -880,6 +894,7 @@ struct Ext2FileSystem {
         for (unsigned i=0 ; i<super.ngroups() ; i++)
             bgdescs[i].parse(&buf[i*32]);
     }
+
     void dump() const
     {
         super.dump();
@@ -897,12 +912,13 @@ struct Ext2FileSystem {
     void enuminodes(FUNC cb) const
     {
         uint32_t inodebase= 1;
-        for (unsigned i=0 ; i<groups.size() ; i++) {
-            groups[i].enuminodes(inodebase, cb);
+        for (const auto & group : groups) {
+            group.enuminodes(inodebase, cb);
             inodebase+=super.s_inodes_per_group;
         }
     }
-    Inode getinode(uint32_t nr) const
+
+    [[nodiscard]] Inode getinode(uint32_t nr) const
     {
         nr--;
         if (nr>=super.s_inodes_count)
@@ -921,7 +937,7 @@ void recursedirs(Ext2FileSystem&fs, uint32_t nr, std::string path, FN f)
     if ((i.i_mode&0xf000)!=EXT4_S_IFDIR)
         return;
     i.enumblocks(fs.super, [&](const uint8_t *first)->bool {
-        if (first==NULL)
+        if (first==nullptr)
             return true;
         const uint8_t *p= first;
         while (p<first+fs.super.blocksize()) {
@@ -956,7 +972,7 @@ uint32_t searchpath(Ext2FileSystem&fs, uint32_t nr, std::string path)
     }
     uint32_t found= 0;
     i.enumblocks(fs.super, [&] (const uint8_t *first)->bool {
-        if (first==NULL)
+        if (first == nullptr)
             return true;
         const uint8_t *p= first;
         while (p<first+fs.super.blocksize()) {
@@ -996,13 +1012,14 @@ uint32_t searchpath(Ext2FileSystem&fs, uint32_t nr, std::string path)
 struct action {
     typedef std::shared_ptr<action> ptr;
     static ptr parse(const std::string& arg);
-    virtual ~action() { }
+    virtual ~action() = default;
 
     virtual void perform(Ext2FileSystem &fs)=0;
 };
+
 struct hexdumpinode : action {
     uint32_t nr;
-    hexdumpinode(uint32_t nr) : nr(nr) { }
+    explicit hexdumpinode(uint32_t nr) : nr(nr) { }
 
     void perform(Ext2FileSystem &fs) override
     {
@@ -1021,7 +1038,7 @@ struct exportinode : action {
     uint32_t nr;
     std::string savepath;
 
-    exportinode(uint32_t nr, const std::string& savepath) : nr(nr), savepath(savepath) { }
+    exportinode(uint32_t nr, std::string  savepath) : nr(nr), savepath(std::move(savepath)) { }
 
     void perform(Ext2FileSystem &fs) override
     {
@@ -1064,8 +1081,8 @@ struct exportinode : action {
 struct hexdumpfile : action {
     std::string ext2path;
 
-    hexdumpfile(const std::string& ext2path)
-        : ext2path(ext2path)
+    explicit hexdumpfile(std::string ext2path)
+        : ext2path(std::move(ext2path))
     {
     }
 
@@ -1084,8 +1101,8 @@ struct exportfile : action {
     std::string ext2path;
     std::string savepath;
 
-    exportfile(const std::string& ext2path, const std::string& savepath)
-        : ext2path(ext2path), savepath(savepath)
+    exportfile(std::string  ext2path, std::string  savepath)
+        : ext2path(std::move(ext2path)), savepath(std::move(savepath))
     {
     }
 
@@ -1104,10 +1121,10 @@ struct exportdirectory : action {
     std::string ext2path;
     std::string savepath;
 
-    exportdirectory(const std::string& ext2path, const std::string& savepath)
-        : ext2path(ext2path), savepath(savepath)
+    exportdirectory(std::string  ext2path, const std::string& savepath)
+        : ext2path(std::move(ext2path)), savepath(savepath)
     {
-        struct stat st;
+        struct stat st = {0};
         if (-1==stat(savepath.c_str(), &st)) {
             if (-1==mkdir(savepath.c_str(), 0777))
                 throw std::system_error(errno, std::generic_category(), "mkdir");
@@ -1186,21 +1203,21 @@ struct dumpblocks : action {
 action::ptr action::parse(const std::string& arg)
 {
     if (arg.empty())
-        throw "empty arg";
+        throw std::runtime_error("empty arg");
     if (arg[0]=='#') {
 // #<ino>:outfile
-        size_t ix= arg.find(":", 1);
+        size_t ix= arg.find(':', 1);
 
-        if (ix==arg.npos) {
-            return std::make_shared<hexdumpinode>(strtoul(&arg[1],0,0));
+        if (ix==std::string::npos) {
+            return std::make_shared<hexdumpinode>(strtoul(&arg[1],nullptr,0));
         }
         else {
-            return std::make_shared<exportinode>(strtoul(&arg[1],0,0), arg.substr(ix+1));
+            return std::make_shared<exportinode>(strtoul(&arg[1],nullptr,0), arg.substr(ix+1));
         }
     }
     else {
-        size_t ix= arg.find(":", 0);
-        if (ix==arg.npos)
+        size_t ix= arg.find(':', 0);
+        if (ix==std::string::npos)
             return std::make_shared<hexdumpfile>(arg);
 
 // /path:outfile
@@ -1255,13 +1272,13 @@ class SparseReader : public ReadWriter {
     uint64_t _off;
 public:
     SparseReader(ReadWriter_ptr r)
-        : r(r), _off(0)
+        : r(std::move(r)), _off(0)
     {
         readheader();
         scansparse();
 
         printf(" %lu entries in sparse map\n", _map.size());
-        if (_map.size()) {
+        if (!_map.empty()) {
             auto i= _map.begin();
             printf("first: "); i->second.dump(i->first);
         }
@@ -1282,7 +1299,7 @@ private:
 
         magic= r->read32le();
         if (magic!=0xed26ff3a)
-            throw "invalid sparse magic";
+            throw std::runtime_error("invalid sparse magic");
         version= r->read32le();
         hdrsize= r->read16le();
         cnkhdrsize= r->read16le();
@@ -1335,6 +1352,8 @@ private:
                     /*uint32_t crc=*/ r->read32le();
                     }
                     break;
+                default:
+                    break;
             }
 
             r->setpos(r->getpos() + chunksize-cnkhdrsize);
@@ -1350,7 +1369,7 @@ private:
         _map.emplace(expandedofs, sparserecord{ndwords, 1, value});
     }
 
-    std::map<uint64_t, sparserecord>::const_iterator findofs(uint64_t ofs) const
+    [[nodiscard]] std::map<uint64_t, sparserecord>::const_iterator findofs(uint64_t ofs) const
     {
         auto i= _map.upper_bound(ofs);
         if (i==_map.begin()) {
@@ -1366,7 +1385,7 @@ private:
         return i;
     }
 
-    void memfill(uint8_t *p, uint32_t val, size_t n, int rot)
+    static void memfill(uint8_t *p, uint32_t val, size_t n, int rot)
     {
         uint8_t b[4];  *(uint32_t*)b= val;
 
@@ -1374,7 +1393,7 @@ private:
             *p++ = b[(rot++)&3];
     }
 public:
-    virtual size_t read(uint8_t *p, size_t n)
+    size_t read(uint8_t *p, size_t n) override
     {
         size_t total= 0;
         while (n) {
@@ -1405,27 +1424,27 @@ public:
         }
         return total;
     }
-    virtual void write(const uint8_t *p, size_t n)
+    void write(const uint8_t *p, size_t n) override
     {
-        throw "writing not implemented";
+        throw std::runtime_error("writing not implemented");
     }
-    virtual void setpos(uint64_t off)
+    void setpos(uint64_t off) override
     {
         _off= off;
     }
-    virtual void truncate(uint64_t off)
+    void truncate(uint64_t off) override
     {
-        throw "truncate not implemented";
+        throw std::runtime_error("truncate not implemented");
     }
-    virtual uint64_t size()
+    uint64_t size() override
     {
         return blkcount*blksize;
     }
-    virtual uint64_t getpos() const
+    [[nodiscard]] uint64_t getpos() const override
     {
         return _off;
     }
-    virtual bool eof()
+    bool eof() override
     {
         return getpos()>=size();
     }
@@ -1550,7 +1569,7 @@ int main(int argc,char**argv)
     fs.rootdir_in = rootdir_in;
     fs.parse(r);
 
-    for (auto a : actions)
+    for (auto& a : actions)
         a->perform(fs);
 
     }

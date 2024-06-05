@@ -18,6 +18,8 @@
 #include <sys/ioctl.h>
 #endif
 #include <fcntl.h>
+
+#include <utility>
 #ifdef _WIN32
 #include <io.h>
 #endif
@@ -25,11 +27,11 @@
 class BlockDevice : public ReadWriter {
     int _f;
     std::string _filename;
-    uint64_t _bkcount;
-    uint32_t _bksize;
-    uint64_t _curpos;
+    uint64_t _bkcount = 0;
+    uint32_t _bksize = 0;
+    uint64_t _curpos = 0;
 
-    uint64_t _bufferpos;
+    uint64_t _bufferpos = 0;
     std::vector<uint8_t> _buffer;
 public:
     struct filemode_t {  };
@@ -42,16 +44,17 @@ public:
     enum { O_BINARY=0 };
 #endif
 
-    BlockDevice(const std::string& filename, readwrite_t)
-        : _filename(filename)
+    BlockDevice(std::string filename, readwrite_t)
+        : _filename(std::move(filename))
     {
         _f= open(_filename.c_str(), O_RDWR|O_BINARY);
         if (_f==-1)
             throw posixerror(std::string("opening ")+_filename);
         initdev();
     }
-    BlockDevice(const std::string& filename, readonly_t)
-        : _filename(filename)
+
+    BlockDevice(std::string  filename, readonly_t)
+        : _filename(std::move(filename))
     {
         setreadonly();
         _f= open(_filename.c_str(), O_RDONLY|O_BINARY);
