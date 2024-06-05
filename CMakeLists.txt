@@ -57,6 +57,7 @@ add_executable(ext2rd ext2rd.cpp vectorutils.cpp stringutils.cpp)
 
 target_link_libraries(ext2rd ${MMAPLIB})
 target_include_directories(ext2rd PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_options(ext2rd PRIVATE "-static")
 target_compile_definitions(ext2rd PRIVATE -DUSE_CPPUTILS)
 
 install(TARGETS ext2rd DESTINATION bin)
